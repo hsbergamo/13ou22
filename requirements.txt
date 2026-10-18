@@ -2,5 +2,5 @@ flask
 opencv-python-headless
 mediapipe
 numpy
-pygame
-gunicorn
+pygame-ce
+gunicorn   
