@@ -4,12 +4,6 @@ import time
 import cv2
 import mediapipe as mp
 import numpy as np
-
-# os.environ['SDL_AUDIODRIVER'] = 'dummy'
-# os.environ['SDL_VIDEODRIVER'] = 'dummy'  # se também não tiver display
-
-
-import pygame
 from flask import Flask, Response, render_template, jsonify, send_from_directory
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
