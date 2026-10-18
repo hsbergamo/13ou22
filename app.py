@@ -4,8 +4,13 @@ import time
 import cv2
 import mediapipe as mp
 import numpy as np
+
+# os.environ['SDL_AUDIODRIVER'] = 'dummy'
+# os.environ['SDL_VIDEODRIVER'] = 'dummy'  # se também não tiver display
+
+
 import pygame
-from flask import Flask, Response, render_template
+from flask import Flask, Response, render_template, jsonify, send_from_directory
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
@@ -34,10 +39,7 @@ HAND_CONNECTIONS = [
 
 THUMB_RATIO = 0.5
 
-pygame.mixer.init()
-acerto_som = pygame.mixer.Sound(AUDIO_ACERTO)
-erro_som = pygame.mixer.Sound(AUDIO_ERRO)
-bg_som = pygame.mixer.Sound(AUDIO_BG)
+
 
 base_options = python.BaseOptions(model_asset_path=MODEL_PATH)
 options = vision.HandLandmarkerOptions(
@@ -50,8 +52,7 @@ detector = vision.HandLandmarker.create_from_options(options)
 
 cap = cv2.VideoCapture(0)
 
-ultima_numero = None
-som_atual = None
+numero_atual = None
 ultimo_timestamp = 0
 
 
@@ -138,37 +139,6 @@ def desenhar_numero(frame, numero, cor=(255, 255, 255, 100)):
     cv2.putText(frame, texto, (x, y), FONT, FONT_SCALE, cor, FONT_THICKNESS, cv2.LINE_AA)
 
 
-def tocar_som(numero):
-    global ultima_numero, som_atual
-    if numero is None:
-        if ultima_numero is None:
-            return
-        if som_atual:
-            som_atual.stop()
-            som_atual = None
-        ultima_numero = None
-        return
-    if numero != 13 and numero != 22:
-        numero = 10
-    if numero == ultima_numero:
-        return
-    som = None
-    if numero == 13:
-        som = acerto_som
-    elif numero == 22:
-        som = erro_som
-    elif numero == 10:
-        som = bg_som
-    if som_atual and som_atual is not som:
-        som_atual.stop()
-        som_atual = None
-    if som:
-        som.play(loops=-1)
-        som_atual = som
-    elif som_atual:
-        som_atual.stop()
-        som_atual = None
-    ultima_numero = numero
 
 def processar_frame(frame):
     frame = cv2.flip(frame, 1)
@@ -248,7 +218,8 @@ def processar_frame(frame):
                 cor_por_indice[idx] = (255, 255, 0)
         desenhar_maos(frame, results.hand_landmarks, cor_por_indice)
 
-    tocar_som(numero_final)
+    global numero_atual
+    numero_atual = numero_final
     return frame
 
 
@@ -276,6 +247,16 @@ def index():
 @app.route('/video_feed')
 def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+@app.route('/estado')
+def estado():
+    return jsonify({'numero': numero_atual})
+
+
+@app.route('/audio/<path:filename>')
+def audio(filename):
+    return send_from_directory(os.path.join(BASE_DIR, 'audio'), filename)
 
 
 if __name__ == '__main__':
