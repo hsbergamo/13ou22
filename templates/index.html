@@ -3,24 +3,69 @@
 <head>
   <meta charset="utf-8">
   <title>13ou22</title>
-      <style>
-        body { font-family: Arial, sans-serif; text-align: center; background: #111111; color: #333; overflow:hidden; }
-        .container { 
-          width: 100vw;
-          height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        img { width: 800px; border: 5px solid #333; border-radius: 8px; box-shadow: 0px 4px 10px rgba(0,0,0,0.2); }
-        @media (max-width: 768px) {
-          img { width: 100%; max-width: 100%; height: auto; }
-        }
-    </style>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #111111; color: #333; overflow:hidden; }
+    .container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    img { width: 800px; border: 5px solid #333; border-radius: 8px; box-shadow: 0px 4px 10px rgba(0,0,0,0.2); }
+    @media (max-width: 768px) {
+      img { width: 100%; max-width: 100%; height: auto; }
+    }
+    #audioBtn { position: fixed; bottom: 10px; right: 10px; padding: 8px 12px; }
+  </style>
 </head>
 <body>
   <div class="container">
   <img src="{{ url_for('video_feed') }}" alt="video">
   </div>
+  <button id="audioBtn">Ativar audio</button>
+  <script>
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioCtx();
+    const buffers = {};
+    const files = { bg: 'estrela.mp3', acerto: 'lula.mp3', erro: 'fogo.mp3' };
+    async function loadAll() {
+      for (const k in files) {
+        const res = await fetch('/audio/' + files[k]);
+        const arr = await res.arrayBuffer();
+        buffers[k] = await ctx.decodeAudioData(arr);
+      }
+    }
+    loadAll().catch(()=>{});
+    let currentSource = null;
+    let currentKey = null;
+    function playKey(key) {
+      if (key === currentKey) return;
+      if (currentSource) { try { currentSource.stop(); } catch(e){} currentSource.disconnect(); currentSource = null; }
+      currentKey = key;
+      if (!key || !buffers[key]) return;
+      const src = ctx.createBufferSource();
+      src.buffer = buffers[key];
+      src.loop = true;
+      src.connect(ctx.destination);
+      src.start();
+      currentSource = src;
+    }
+    async function atualizar() {
+      try {
+        const r = await fetch('/estado');
+        const d = await r.json();
+        const n = d.numero;
+        let key = null;
+        if (n === 13) key = 'acerto';
+        else if (n === 22) key = 'erro';
+        else if (n !== null) key = 'bg';
+        playKey(key);
+      } catch (e) {}
+    }
+    document.getElementById('audioBtn').addEventListener('click', () => { ctx.resume(); });
+    setInterval(atualizar, 500);
+    atualizar();
+  </script>
 </body>
 </html>
